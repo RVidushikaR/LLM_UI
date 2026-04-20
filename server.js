@@ -31,7 +31,7 @@ app.post("/api/llm", async (req, res) => {
     // Word Embedding Block
     if (block === "word_embedding") {
       // input should contain { sentence: "..." }
-      const python = spawn("python", ["word_embedding.py", JSON.stringify(input)]);
+      const python = spawn("python", ["backend/word_embedding.py", JSON.stringify(input)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -54,7 +54,7 @@ app.post("/api/llm", async (req, res) => {
       // include the model in the payload
       const payload = { ...input, model }; // merges input with model
 
-      const python = spawn("python", ["tokenizer.py", JSON.stringify(payload)]);
+      const python = spawn("python", ["backend/tokenizer.py", JSON.stringify(payload)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -78,7 +78,7 @@ app.post("/api/llm", async (req, res) => {
 
       const payload = { ...input, model }; 
       if (model=="BERT"){
-        const python = spawn("python", ["BERT.py", JSON.stringify(payload)]);
+        const python = spawn("python", ["backend/BERT.py", JSON.stringify(payload)]);
 
         let dataBuffer = "";
         python.stdout.on("data", data => dataBuffer += data.toString());
@@ -95,7 +95,7 @@ app.post("/api/llm", async (req, res) => {
           }
         });
       } else if (model=="CLIP"){
-        const python = spawn("python", ["CLIP.py"]);
+        const python = spawn("python", ["backend/CLIP.py"]);
 
         let dataBuffer = "";
 
@@ -117,7 +117,7 @@ app.post("/api/llm", async (req, res) => {
           }
         });
       } else if (model=="ViT"){
-        const python = spawn("python", ["ViT.py"]);
+        const python = spawn("python", ["backend/ViT.py"]);
 
         let dataBuffer = "";
 
@@ -142,7 +142,7 @@ app.post("/api/llm", async (req, res) => {
       return;
     } if (block === "softmax") {
       // input should contain { embeddings: [...], mode: "query|key|value" }
-      const python = spawn("python", ["softmax.py"]);
+      const python = spawn("python", ["backend/softmax.py"]);
 
       let dataBuffer = "";
 
@@ -169,7 +169,7 @@ app.post("/api/llm", async (req, res) => {
     // Dense Layer Block
     if (block === "dense_layer") {
       // input should contain { embeddings: [...], mode: "query|key|value" }
-      const python = spawn("python", ["dense_layer.py", JSON.stringify(input)]);
+      const python = spawn("python", ["backend/dense_layer.py", JSON.stringify(input)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -192,7 +192,7 @@ app.post("/api/llm", async (req, res) => {
     // Split Heads Block
     if (block === "split_heads") {
       // input should contain { dense_output: [...], mode: "query|key|value" }
-      const python = spawn("python", ["split_head.py", JSON.stringify(input)]);
+      const python = spawn("python", ["backend/split_head.py", JSON.stringify(input)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -214,7 +214,7 @@ app.post("/api/llm", async (req, res) => {
     if (block === "attack") {
 
       if (model === "Back Door"){
-        const python = spawn("python", ["backdoor_attack.py", JSON.stringify(input)]);
+        const python = spawn("python", ["backend/backdoor_attack.py", JSON.stringify(input)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -234,7 +234,7 @@ app.post("/api/llm", async (req, res) => {
       return;
 
       } else if (model === "Patch"){
-        const python = spawn("python", ["patch_attack.py", JSON.stringify(input)]);
+        const python = spawn("python", ["backend/patch_attack.py", JSON.stringify(input)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -258,7 +258,7 @@ app.post("/api/llm", async (req, res) => {
 
     if (block === "attack_detect") {
       if (model === "Back Door") {
-        const python = spawn("python", ["detect_attack.py"]);
+        const python = spawn("python", ["backend/detect_attack.py"]);
 
         // send input via stdin
         python.stdin.write(JSON.stringify(input));
@@ -286,7 +286,7 @@ app.post("/api/llm", async (req, res) => {
     // Attention Block
     if (block === "attention") {
       // input should contain { query_heads: [...], key_heads: [...], value_heads: [...] }
-      const python = spawn("python", ["attention.py", JSON.stringify(input)]);
+      const python = spawn("python", ["backend/attention.py", JSON.stringify(input)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => dataBuffer += data.toString());
@@ -316,7 +316,7 @@ app.post("/api/llm", async (req, res) => {
         mode: req.body.mode || "normal"
       };
 
-      const python = spawn("python", ["llama3.py", JSON.stringify(payload)]);
+      const python = spawn("python", ["backend/llama3.py", JSON.stringify(payload)]);
 
       let dataBuffer = "";
       python.stdout.on("data", data => {dataBuffer += data.toString();});
