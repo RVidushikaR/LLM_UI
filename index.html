@@ -1,0 +1,1629 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>LLM Blocks Playground</title>
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  font-family:Arial;
+  display:flex;
+  height:100vh;
+}
+#blockPanel{
+  width:260px;
+  background:white;
+  border-right:2px solid #ccc;
+  padding:10px;
+  box-sizing:border-box;
+}
+.paletteBlock{
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:6px;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+  text-align:center;
+}
+#playground {
+  position: absolute;
+  top: 0;
+  left: 260px;   
+  right: 0;
+  height:60%;   
+  background: #fafafa;
+}
+#uiContainer {
+  position: absolute;
+  bottom: 0;
+  left: 260px;
+  right: 0;
+  height: 40%;  
+  display: flex;
+  flex-direction: column;
+  background: #f0f0f0;
+  border-top: 2px solid #ccc;
+}
+#promptInput{
+  flex:0 0 20%;
+  font-size:16px;
+  padding:10px;
+}
+#responseOutput{
+  flex:1;
+  background:white;
+  border-left:2px solid #ccc;
+  padding:10px;
+  overflow:auto;
+}
+#tabButtons{
+  display:flex;
+  margin-bottom:10px;
+}
+.tabBtn{
+  flex:1;
+  padding:8px;
+  border:none;
+  background:#eee;
+  cursor:pointer;
+  font-weight:bold;
+}
+.tabBtn.active{
+  background:#ddd;
+}
+.tabContent{
+  display:none;
+}
+.tabContent.active{
+  display:block;
+}
+
+/* 2D logic blocks */
+.logicBlock{
+  position:absolute;
+  padding:10px 14px;
+  border-radius:6px;
+  color:white;
+  font-weight:bold;
+  cursor:move;
+
+  display:flex;
+  align-items:center;      /* vertical center */
+  justify-content:center;  /* horizontal center */
+
+  gap:6px;
+  text-align:center;
+  min-width:90px;          /* helps center short labels like AND/OR */
+}
+.modelSelect {
+  margin-top: 6px;
+  width: 100%;
+  border-radius: 4px;
+  border: none;
+  padding: 4px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="blockPanel">
+
+<div id="tabButtons">
+<button class="tabBtn active" data-tab="llm">LLM</button>
+<button class="tabBtn" data-tab="ml">ML Models</button>
+<button class="tabBtn" data-tab="logic">Logic</button>
+<button class="tabBtn" data-tab="task">Task</button>
+</div>
+
+<div class="tabContent" id="llmTab">
+
+  <div class="paletteBlock" style="background:#1cded7">
+    Encoder<br>
+    <select class="modelSelect">
+      <option value="initial">SELECT</option>
+      <option value="BERT">BERT</option>
+      <option value="CLIP">CLIP</option>
+      <option value="ViT">ViT</option>
+    </select>
+  </div>
+
+  <div class="paletteBlock" style="background:#3410d4">
+    Decoder<br>
+    <select class="modelSelect">
+      <option value="initial">SELECT</option>
+      <option value="LLaMa">LLaMA</option>
+      <option value="GPT">GPT</option>
+    </select>
+  </div>
+
+  <div class="paletteBlock" style="background:#a20ed7">
+    Tokenizer<br>
+    <select class="modelSelect">
+      <option value="initial">SELECT</option>
+      <option value="BERT">BERT</option>
+    </select>
+  </div>
+
+</div>
+
+<div class="tabContent" id="taskTab">
+
+  <div class="paletteBlock" style="background:#ed8e12">
+    Attacks<br>
+    <select class="modelSelect">
+      <option value="initial">SELECT</option>
+      <option value="Back Door">Back Door</option>
+      <option value="Patch">Physical Patch</option>
+    </select>
+  </div>
+  <div class="paletteBlock" style="background:#e83c11">
+  Text<br>
+  <textarea class="textInput" placeholder="Type here..."></textarea>
+</div>
+
+</div>
+
+<div class="tabContent" id="mlTab">
+<div class="paletteBlock" style="background:#8e44ad">Dense layer</div>
+<div class="paletteBlock" style="background:#9b59b6">Attention</div>
+<div class="paletteBlock" style="background:#5dade2">Word Embedding</div>
+<div class="paletteBlock" style="background:#1ed2e9">Softmax</div>
+<div class="paletteBlock" style="background:#16a085">Split Head</div>
+</div>
+
+<div class="tabContent" id="logicTab">
+<div class="paletteBlock" style="background:#f39c12">IF</div>
+<div class="paletteBlock" style="background:#e67e22">FOR</div>
+<div class="paletteBlock" style="background:#d35400">WHILE</div>
+<div class="paletteBlock" style="background:#34495e">AND</div>
+<div class="paletteBlock" style="background:#2c3e50">OR</div>
+</div>
+
+</div>
+
+<div id="playground"></div>
+
+<div id="uiContainer">
+  <div style="display:flex;">
+    <input id="promptInput" placeholder="Ask something..." style="flex:4; padding:10px;">
+
+    <button id="executeBtn" style="
+      padding:10px 16px;
+      font-weight:bold;
+      cursor:pointer;
+      border:none;
+      background:#ffffff;
+      color:rgb(0, 0, 0);
+    ">
+      Ask
+    </button>
+  </div>
+
+  <div id="responseOutput"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/DragControls.js"></script>
+
+<script>
+const playground = document.getElementById("playground")
+const scene = new THREE.Scene()
+const camera = new THREE.PerspectiveCamera(75, playground.clientWidth/playground.clientHeight, 0.1, 1000)
+camera.position.z = 6
+
+const renderer = new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(playground.clientWidth, playground.clientHeight)
+renderer.setClearColor(0xffffff, 1)
+playground.appendChild(renderer.domElement)
+let clickTimer = null;
+let lastExecutedBlock = null;
+
+/* ---------- CREATE BLOCK ---------- */
+function createBlock(label, color, model = null){
+  let width = 1.6, height = 0.8, depth = 0.8;
+  let texWidth = 1024, texHeight = 1024;
+
+  if(label === "Word Embedding"){
+    width = 2.5;
+    height = 0.8;
+    texWidth = 1024;
+    texHeight = 700;
+  }
+
+  if(label === "Dense layer"){
+    width = 2.5;
+    height = 0.8;
+    texWidth = 700;
+    texHeight = 500;
+  }
+
+  if(label === "Split Head"){
+    width = 2.2;
+    height = 0.8;
+    texWidth = 600;
+    texHeight = 400;
+  }
+
+  if(label === "Softmax"){
+    width = 2.0;
+    height = 0.8;
+    texWidth = 600;
+    texHeight = 400;
+  }
+
+  if(label === "Attention"){
+    width = 2.0;
+    height = 0.8;
+    texWidth = 600;
+    texHeight = 400;
+  }
+
+  if(label === "Tokenizer"){
+    width = 2.0;
+    height = 0.8;
+    texWidth = 600;
+    texHeight = 400;
+  }
+
+  if(label === "Encoder"){
+    width = 1.7;
+    height = 0.8;
+    texWidth = 512;
+    texHeight = 400;
+  }
+
+  if(label === "Decoder"){
+    width = 1.7;
+    height = 0.8;
+    texWidth = 512;
+    texHeight = 400;
+  }
+  if(label === "Attacks"){
+    width = 3.0;
+    height = 0.8;
+    texWidth = 800;
+    texHeight = 500;
+  }
+  if(label === "Text"){
+    width = 5.0;
+    height = 1.2;
+    texWidth = 2500;
+    texHeight = 1200;
+  }
+
+  let displayText;
+
+  if (label === "Text") {
+    displayText = `${label}\n${model}`; 
+  } else {
+    displayText = model ? `${label}\n${model}` : label;
+  }
+  const tex = createLabelTexture(displayText, color, texWidth, texHeight, height);
+  const materials = [
+    new THREE.MeshBasicMaterial({color}),
+    new THREE.MeshBasicMaterial({color}),
+    new THREE.MeshBasicMaterial({color}),
+    new THREE.MeshBasicMaterial({color}),
+    new THREE.MeshBasicMaterial({map: tex}),  // front label
+    new THREE.MeshBasicMaterial({color})
+  ];
+
+  const geo = new THREE.BoxGeometry(width, height, depth);
+  const cube = new THREE.Mesh(geo, materials);
+
+  cube.position.x = Math.random() * 2;
+  cube.position.y = Math.random() * 2;
+  cube.userData.label = label;
+
+  scene.add(cube);
+  return cube;
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const testLine = currentLine + " " + words[i];
+    const metrics = ctx.measureText(testLine);
+
+    if (metrics.width < maxWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = words[i];
+    }
+  }
+
+  lines.push(currentLine);
+  return lines;
+}
+
+/* ---------- LABEL TEXTURE ---------- */
+function createLabelTexture(text, color, width = 512, height = 512, blockHeight = 0.8) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "black";
+
+  let lines = text.split("\n");
+  let fontSize = Math.floor(blockHeight * 140);
+
+  // 🔥 shrink font if too many lines
+  if (lines.length >= 3) fontSize *= 0.7;
+  if (lines.length >= 4) fontSize *= 0.6;
+
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (lines.length > 1) {
+    const wrapped = wrapText(ctx, lines[1], width * 0.8);
+
+    lines = [lines[0], ...wrapped.slice(0, 3)];
+  }
+
+  const lineHeight = fontSize * 1.2;
+  const startY = height / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+  ctx.save();
+  ctx.scale(1, 1.2); // keep your vertical stretch
+
+  lines.forEach((line, i) => {
+    ctx.fillText(line, width / 2, (startY + i * lineHeight) / 1.2);
+  });
+
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  return texture;
+}
+
+/* ---------- DRAGGABLE BLOCKS ---------- */
+const blocks=[]
+let dragControls = new THREE.DragControls(blocks, camera, renderer.domElement)
+let justDragged=false
+let dragStartPos=null
+
+function updateDragControls(){
+  dragControls.dispose()
+  dragControls = new THREE.DragControls(blocks, camera, renderer.domElement)
+  dragControls.addEventListener("dragstart", e=>{
+    dragStartPos = e.object.position.clone()
+  })
+  dragControls.addEventListener("dragend", e=>{
+    const d = dragStartPos.distanceTo(e.object.position)
+    justDragged = d>0.01
+    setTimeout(()=>justDragged=false,500)
+  })
+}
+
+/* ---------- TAB SWITCHING ---------- */
+const tabBtns = document.querySelectorAll(".tabBtn")
+const tabContents = document.querySelectorAll(".tabContent")
+
+function activateTab(tabName){
+    tabContents.forEach(t=>t.classList.remove("active"))
+    document.getElementById(tabName+"Tab").classList.add("active")
+    tabBtns.forEach(b=>b.classList.remove("active"))
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add("active")
+}
+tabBtns.forEach(btn=>{ btn.addEventListener("click",()=>{ activateTab(btn.dataset.tab) }) })
+
+activateTab("llm")
+updateDragControls()
+
+/* ---------- 2D LOGIC BLOCK ---------- */
+function create2DLogicBlock(label,color){
+
+  const block = document.createElement("div")
+  block.className = "logicBlock"
+  block.style.background = color
+  block.style.left = Math.random()*400 + "px"
+  block.style.top = Math.random()*200 + "px"
+
+  const text = document.createElement("span")
+  text.innerText = label
+  block.appendChild(text)
+
+  /* ---------- FOR BLOCK ---------- */
+  if(label==="FOR"){
+
+    const varInput = document.createElement("input")
+    varInput.placeholder="i"
+    varInput.style.width="30px"
+
+    const start = document.createElement("input")
+    start.placeholder="0"
+    start.type="number"
+    start.style.width="50px"
+
+    const end = document.createElement("input")
+    end.placeholder="10"
+    end.type="number"
+    end.style.width="50px"
+
+    block.append(" (")
+    block.appendChild(varInput)
+    block.append(" ) in range from ")
+    block.appendChild(start)
+    block.append(" to ")
+    block.appendChild(end)
+
+  }
+
+  /* ---------- WHILE BLOCK ---------- */
+  if(label==="WHILE"){
+
+    const variable = document.createElement("input")
+    variable.placeholder="x"
+    variable.style.width="30px"
+
+    const operator = document.createElement("select")
+    ;["<","<=",">",">=","=="].forEach(o=>{
+      const opt=document.createElement("option")
+      opt.value=o
+      opt.innerText=o
+      operator.appendChild(opt)
+    })
+
+    const value = document.createElement("input")
+    value.type="number"
+    value.placeholder="10"
+    value.style.width="50px"
+
+    block.append(" (")
+    block.appendChild(variable)
+    block.append(" ) ")
+    block.appendChild(operator)
+    block.appendChild(value)
+
+  }
+
+  /* ---------- IF BLOCK ---------- */
+  if(label==="IF"){
+
+    const variable = document.createElement("input")
+    variable.placeholder="x"
+    variable.style.width="30px"
+
+    const operator = document.createElement("select")
+    ;["<","<=",">",">=","=="].forEach(o=>{
+      const opt=document.createElement("option")
+      opt.value=o
+      opt.innerText=o
+      operator.appendChild(opt)
+    })
+
+    const value = document.createElement("input")
+    value.type="number"
+    value.placeholder="5"
+    value.style.width="50px"
+
+    block.append(" (")
+    block.appendChild(variable)
+    block.append(" ) ")
+    block.appendChild(operator)
+    block.appendChild(value)
+
+  }
+
+  /* ---------- AND / OR ---------- */
+  if(label==="AND" || label==="OR"){
+    block.style.width="80px"
+  }
+
+  playground.appendChild(block)
+
+  /* ---------- DRAGGING ---------- */
+  let offsetX, offsetY, dragging=false
+
+  block.addEventListener("mousedown",e=>{
+      dragging=true
+      offsetX=e.offsetX
+      offsetY=e.offsetY
+  })
+
+  document.addEventListener("mousemove",e=>{
+      if(!dragging) return
+      block.style.left=(e.pageX-offsetX-260)+"px"
+      block.style.top=(e.pageY-offsetY)+"px"
+  })
+
+  document.addEventListener("mouseup",()=>{
+      dragging=false
+  })
+}
+
+/* ---------- SPAWN LOGIC ---------- */
+function attachPaletteListeners(){
+  document.querySelectorAll(".tabContent.active .paletteBlock").forEach(el=>{
+
+    // ✅ STOP dropdown clicks from spawning blocks
+    const select = el.querySelector("select");
+    if (select) {
+      ["click", "mousedown", "change"].forEach(evt => {
+        select.addEventListener(evt, e => e.stopPropagation());
+      });
+    }
+
+    const textarea = el.querySelector("textarea");
+    if (textarea) {
+      ["click", "mousedown", "focus"].forEach(evt => {
+        textarea.addEventListener(evt, e => e.stopPropagation());
+      });
+    }
+
+    el.onclick = (e)=>{
+
+      if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION") return;
+
+      const label = el.childNodes[0].nodeValue.trim();
+      const textArea = el.querySelector("textarea");
+      const textValue = textArea ? textArea.value : null;
+      const color = getComputedStyle(el).backgroundColor;
+
+      let block;
+
+      const select = el.querySelector("select");
+      const model = select ? select.value : null;
+
+      if (select && model === "initial") {
+        alert("Please select a model first");
+        return;
+      }
+
+      if (label === "Text") {
+        if (!textValue || textValue.trim() === "") {
+          alert("Please type something first");
+          return;
+        }
+        block = createBlock(label, color, textValue);
+
+        block.userData.text = textValue;
+        blocks.push(block);
+        updateDragControls();
+
+      } else if(["IF","FOR","WHILE","AND","OR"].includes(label)){
+        create2DLogicBlock(label, color);
+      }
+      else{
+        block = createBlock(label, color, model);
+
+        // ✅ store metadata for backend use
+        block.userData.label = label;
+        block.userData.model = model;
+
+        blocks.push(block);
+        updateDragControls();
+      }
+    }
+  })
+}
+attachPaletteListeners()
+
+tabBtns.forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    activateTab(btn.dataset.tab)
+    attachPaletteListeners()
+  })
+})
+
+/* ---------- CONNECTIONS ---------- */
+let connections = []; // { from: Mesh, to: Mesh }
+let selectedBlockForArrow = null;
+
+// draw arrows visually
+function drawArrow(fromBlock, toBlock) {
+  const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+  const points = [];
+  points.push(fromBlock.position.clone());
+  points.push(toBlock.position.clone());
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const line = new THREE.Line(geometry, material);
+  scene.add(line);
+
+  connections.push({ from: fromBlock, to: toBlock, line });
+}
+
+// double-click to create arrow connection
+renderer.domElement.addEventListener("dblclick", event => {
+
+  if(clickTimer){
+    clearTimeout(clickTimer);
+    clickTimer = null;
+  }
+
+  const clicked = getIntersectedBlock(event);
+  if (!clicked) return;
+
+  if (!selectedBlockForArrow) {
+    selectedBlockForArrow = clicked;
+    // clicked.material[4].color.set(0xffff00);
+  } else {
+    drawArrow(selectedBlockForArrow, clicked);
+    //selectedBlockForArrow.material[4].color.set(0x00ff00);
+    selectedBlockForArrow = null;
+  }
+});
+
+// helper to get clicked block
+function getIntersectedBlock(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(blocks);
+  return intersects.length ? intersects[0].object : null;
+}
+
+/* ---------- GET INPUT FOR BLOCK ---------- */
+function getInputForBlock(clickedBlock) {
+  if (clickedBlock.userData.label === "Text") {
+    return { sentence: clickedBlock.userData.text };
+  }
+  const conn = connections.find(c => c.to === clickedBlock);
+  if (conn) {
+    const output = conn.from.userData.output;
+    if (!output) {
+      throw new Error(`Previous block (${conn.from.userData.label}) has not been executed yet.`);
+    }
+    return output;
+  } 
+  throw new Error("No input source connected. Please connect a Text block.");
+}
+
+/* ---------- CLICK TO EXECUTE ---------- */
+const promptInput = document.getElementById("promptInput")
+const responseOutput = document.getElementById("responseOutput")
+
+/* ---------- CLICK TO EXECUTE ---------- */
+renderer.domElement.addEventListener("click", event => {
+
+  if(clickTimer) clearTimeout(clickTimer);
+
+  clickTimer = setTimeout(()=>{
+      executeBlock(event);
+  }, 250); // wait to see if double-click happens
+
+});
+
+async function executeBlock(event){
+  if (justDragged) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(blocks);
+  if (intersects.length === 0) return;
+
+  const clickedBlock = intersects[0].object;
+  const label = clickedBlock.userData.label.trim();
+
+  if (label === "Text") {
+
+    const text = clickedBlock.userData.text;
+
+    if (!text) {
+      responseOutput.innerText = "No text found in block!";
+      return;
+    } 
+
+    responseOutput.innerHTML = `<b>Input Text:</b><br>${text}`;
+    clickedBlock.userData.output = {
+      sentence: text
+    };
+
+    lastExecutedBlock = clickedBlock;
+
+    return; 
+  }
+
+  // const prompt = promptInput.value;
+  // if (!prompt) {
+  //   responseOutput.innerText = "Please enter text first.";
+  //   return;
+  // }
+
+  // label → backend mapping
+  const blockMapping = {
+    "Decoder": { block: "decoder", model: null },
+    "Encoder": { block: "encoder", model: null },
+    "Tokenizer": { block: "tokenizer", model: null },
+    "Word Embedding": { block: "word_embedding", model: null },
+    "Dense layer": { block: "dense_layer", model: null },
+    "Split Head": { block: "split_heads", model: null },
+    "Attention": { block: "attention", model: null },
+    "Softmax": { block: "softmax", model: null },
+    "Text": { block: "text_input", model: null },
+    "Attacks": { block: "attack", model: null }
+  };
+  const mapping = blockMapping[label];
+  if (!mapping) {
+    responseOutput.innerText = "Unsupported block!";
+    return;
+  }
+  const modelToSend = clickedBlock.userData.model || mapping.model;
+  if (modelToSend!=null){
+    responseOutput.innerText = "Running Model:" + label + " " + modelToSend + "\n";
+  }
+  else {
+    responseOutput.innerText = "Running Model:" + label + "\n";
+  }
+  try {
+    const inputForBlock = getInputForBlock(clickedBlock);
+    lastExecutedBlock = clickedBlock;
+
+    console.log("connections:", connections);
+    console.log("inputForBlock:", inputForBlock);
+
+    if (label === "Dense layer" && !inputForBlock.embeddings) {
+      responseOutput.innerText = "Dense Layer needs embeddings from previous block!";
+      return;
+    }
+  
+    if (!inputForBlock) {
+      responseOutput.innerText = "Error: No input available for this block";
+      return;
+    }
+
+    const bodyPayload = {
+        input: inputForBlock,
+        block: mapping.block,
+        model: modelToSend
+      };
+
+      if (inputForBlock.sentence) {
+        bodyPayload.text = inputForBlock.sentence;
+      }
+
+      const res = await fetch("/api/llm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload)
+      });
+
+    const data = await res.json();
+    if (data.type === "embedding") {
+      clickedBlock.userData.output = { embeddings: data.embeddings, tokens: data.tokens };
+    } 
+    else if (data.type === "dense") {
+      clickedBlock.userData.output = {
+        query: data.query,
+        key: data.key,
+        value: data.value,
+        tokens: inputForBlock.tokens
+      };
+    } else if (data.type === "heads") {
+      clickedBlock.userData.output = {
+        query_heads: data.query_heads,
+        key_heads: data.key_heads,
+        value_heads: data.value_heads,
+        tokens: inputForBlock.tokens
+      };
+    } else if (data.type === "attention"){
+      clickedBlock.userData.output = {
+        attention_output: data.attention_output,
+        attention_weights: data.attention_weights,
+        tokens: inputForBlock.tokens
+      };
+    } else if (data.type === "tokenizer") {
+      clickedBlock.userData.output = {
+        tokens: data.tokens,
+        enc_inputs: data.enc_inputs,
+        sentence: inputForBlock.sentence
+      };
+    } else if (data.type === "BERT"){
+
+        clickedBlock.userData.output = {
+        tokens: data.tokens,
+        last_hidden_state: data.last_hidden_state,
+        attention: data.attention,
+        cls_attention_scores: data.cls_attention_scores,
+        importance_scores: data.importance_scores,
+        sentence: inputForBlock.sentence
+      };
+    } else if (data.type === "Back Door"){
+        clickedBlock.userData.output = {
+        trigger_image: data.trigger_image,
+        image: data.image,
+        attack:data.attack
+      };
+    } else if (data.type === "patch"){
+        clickedBlock.userData.output = {
+        patched_img: data.patched_img,
+        image: data.image,
+        attack: data.attack
+      };
+    } else if (data.type === "CLIP") {
+
+          clickedBlock.userData.output = {
+            logits_per_image: data.logits_per_image,
+            logits_per_text: data.logits_per_text,
+            texts: data.texts,
+            attack: inputForBlock.attack,
+            image:inputForBlock.image
+          };
+    } else if (data.type === "ViT"){
+        clickedBlock.userData.output = {
+        logits_per_image: data.logits_per_image,
+        texts:data.texts,
+        attack:inputForBlock.attack,
+        image:inputForBlock.image
+      };
+    }else if (data.type === "softmax"){
+        clickedBlock.userData.output = {
+        probs: data.probs,
+        texts: inputForBlock.texts,
+        attack:inputForBlock.attack,
+        image:inputForBlock.image
+      };
+    } else {  // LLM fallback
+      clickedBlock.userData.output = { sentence: data.text || "" };
+    }
+    if (data.type === "embedding") {
+      visualizeEmbedding(data.tokens, data.embeddings);
+      return;
+    }
+
+    // --- Dense Layer ---
+    if (data.type === "dense") {
+      // clickedBlock.material[4].color.set(0x00ff00);
+      const q = data.query;
+      const k = data.key;
+      const v = data.value;
+      responseOutput.innerHTML += `
+      <br><b>Dense Layer Outputs</b><br>
+      <b>Query (Q):</b><br>
+      ${q[0].slice(0,20).map(x => x.toFixed(3)).join(", ")} ...<br><br>
+      <b>Key (K):</b><br>
+      ${k[0].slice(0,20).map(x => x.toFixed(3)).join(", ")} ...<br><br>
+      <b>Value (V):</b><br>
+      ${v[0].slice(0,20).map(x => x.toFixed(3)).join(", ")} ...
+      `;
+      return;
+    }
+
+    if (data.type === "heads") {
+      const qh = data.query_heads;
+      const kh = data.key_heads;
+      const vh = data.value_heads;
+
+      // Flatten the first head's first 10 numbers
+      const flatQ = qh[0][0].flat().slice(0,10);
+      const flatK = kh[0][0].flat().slice(0,10);
+      const flatV = vh[0][0].flat().slice(0,10);
+
+      responseOutput.innerHTML += `
+        <br><b>Split Heads Output</b><br>
+        <b>Query Heads:</b><br>
+        ${flatQ.map(x => x.toFixed(3)).join(", ")} ...<br><br>
+        <b>Key Heads:</b><br>
+        ${flatK.map(x => x.toFixed(3)).join(", ")} ...<br><br>
+        <b>Value Heads:</b><br>
+        ${flatV.map(x => x.toFixed(3)).join(", ")} ...
+      `;
+      return;
+    }
+
+    if (data.type === "attention") {
+      const tokens = inputForBlock.tokens;
+      visualizeAttention(tokens, data.attention_weights);
+
+      // const { keywords } = highlightKeywordsTokenLevel(tokens, data.attention_weights);
+
+      // const container = document.getElementById("responseOutput");
+      // container.innerHTML += `<br><b>Keywords from Attention:</b> ${keywords.join(", ")}`;
+
+      return;
+    } if (data.type === "BERT") {
+
+      const container = document.getElementById("responseOutput");
+      container.innerHTML = ""; // clear once
+
+      // Create sections
+      const singleHeadDiv = document.createElement("div");
+      const avgHeadDiv = document.createElement("div");
+
+      container.appendChild(document.createElement("hr"));
+      container.appendChild(document.createTextNode("Single Head Attention"));
+      container.appendChild(singleHeadDiv);
+
+      container.appendChild(document.createElement("hr"));
+      container.appendChild(document.createTextNode("Average Attention Across Heads"));
+      container.appendChild(avgHeadDiv);
+
+      visualizeBERTAttention(data.tokens, data.attention, singleHeadDiv, 5, 5);
+      visualizeBERTAttentionLayerAvg(data.tokens, data.attention, avgHeadDiv, 5);
+
+      // Token importance
+      let outputHTML = `<br><b>BERT Raw token importance scores from [CLS] attention</b><br><br>`;
+      for (let i = 0; i < data.tokens.length; i++) {
+          outputHTML += `<b>${data.tokens[i]}</b>: ${data.class_attention_score[i].toFixed(6)}<br>`;
+      }
+      const textDiv = document.createElement("div");
+      textDiv.innerHTML = outputHTML;
+      container.appendChild(textDiv);
+
+      return;
+    } if (data.type === "softmax") {
+        const base64Img = clickedBlock.userData.output.image;
+
+        const imgHTML = `
+          <br><b>Input Image</b><br><br>
+          <img src="data:image/png;base64,${base64Img}" 
+              style="max-width:300px; border:2px solid #ccc; border-radius:8px;" />
+        `;
+        const probs = data.probs;  
+        const labels = clickedBlock.userData.output.texts || [];  
+        const attack = clickedBlock.userData.output.attack || false; // check attack variable
+
+        const topk = 3;
+        let indexed = probs.map((p, i) => ({ prob: p, idx: i }));
+        indexed.sort((a, b) => b.prob - a.prob);
+        const topResults = indexed.slice(0, topk);
+
+        // Set topic and color based on attack
+        let topicHTML = attack
+            ? `<span style="color:red; font-weight:bold;">Class Prediction With Attack</span>`
+            : `<span style="color:green; font-weight:bold;">Clean Class Prediction</span>`;
+
+        let outputHTML = `<br>${topicHTML}<br><br>`;
+
+        topResults.forEach(item => {
+            let label = labels[item.idx] || `Class ${item.idx}`;
+            label = label.split(",")[0];
+            outputHTML += `<b>${label}</b>: ${item.prob.toFixed(6)}<br>`;
+        });
+
+        responseOutput.innerHTML += imgHTML + outputHTML;
+        return;
+    } if (data.type === "Back Door") {
+        const base64Img = data.trigger_image;
+
+        const imgHTML = `
+          <br><b>Trigger Image Output</b><br><br>
+          <img src="data:image/png;base64,${base64Img}" 
+              style="max-width:300px; border:2px solid #ccc; border-radius:8px;" />
+        `;
+
+        responseOutput.innerHTML += imgHTML;
+
+        return;
+      }if (data.type === "patch") {
+        const patchedImg = data.patched_img;
+        const originalImg = data.image;
+
+        const imgHTML = `
+          <br><b>Patch Image Output</b><br><br>
+          <div style="display:flex; gap:20px; align-items:center;">
+            
+            <div style="text-align:center;">
+              <div><b>Original</b></div>
+              <img src="data:image/png;base64,${originalImg}" 
+                  style="max-width:300px; border:2px solid #ccc; border-radius:8px;" />
+            </div>
+
+            <div style="text-align:center;">
+              <div><b>Patched</b></div>
+              <img src="data:image/png;base64,${patchedImg}" 
+                  style="max-width:300px; border:2px solid #ccc; border-radius:8px;" />
+            </div>
+
+          </div>
+        `;
+
+        responseOutput.innerHTML += imgHTML;
+
+        return;
+      } if (data.type === "tokenizer") {
+
+        responseOutput.innerHTML += `
+          <br><b>Tokenizer Output</b><br>
+          <b>Tokens:</b><br>
+          ${data.tokens.join(" , ")}<br><br>
+          <b>Encoder Input:</b><br>
+          ${data.enc_inputs.join(", ")}
+        `;
+
+        return;
+      } if (data.type === "CLIP") { 
+
+        let outputHTML = `<br><b>CLIP Output</b><br><br>`;
+        const texts = data.texts || [];
+
+          for (let i = 0; i < texts.length; i++) {
+            const score = data.logits_per_image[0][i].toFixed(4);  
+            outputHTML += `<b>${texts[i]}</b>: ${score}<br>`;
+          }
+
+        responseOutput.innerHTML += outputHTML;
+        return;
+      } if (data.type === "ViT") {
+          responseOutput.innerHTML += `<br><b>ViT executed</b><br>`;
+          return;
+        }
+    responseOutput.innerText += `\n${data.text}`;
+
+  } catch (err) {
+    responseOutput.innerText += `\nError: ${err.message}`;
+  }
+};
+
+/* ---------- RENDER LOOP ---------- */
+function animate(){
+  requestAnimationFrame(animate)
+    connections.forEach(conn => {
+    const points = [conn.from.position.clone(), conn.to.position.clone()];
+    conn.line.geometry.setFromPoints(points);
+  });
+  renderer.render(scene,camera)
+}
+animate()
+
+/* ---------- RESIZE ---------- */
+window.addEventListener("resize", ()=>{
+  const w = playground.clientWidth
+  const h = playground.clientHeight
+  camera.aspect = w/h
+  camera.updateProjectionMatrix()
+  renderer.setSize(w,h)
+})
+
+function viridisColor(value) {
+  // Simplified viridis palette
+  const colors = [
+    [68, 1, 84], [71, 44, 122], [59, 81, 139], [44, 113, 142],
+    [33, 144, 141], [39, 173, 129], [92, 200, 99], [170, 220, 50],
+    [253, 231, 37]
+  ];
+  const n = colors.length;
+  const idx = Math.min(Math.floor(value * n), n - 1);
+  const [r, g, b] = colors[idx];
+  return `rgb(${r},${g},${b})`;
+}
+
+function visualizeBERTAttention(tokens, attentions, container, layer = 5, head = null) {
+  const seqLen = tokens.length;
+
+  const layerAttn = attentions[layer][0]; // [heads, seq, seq]
+
+  let attentionWeights;
+
+  if (head !== null) {
+    // 🔹 Single head (like Python: head=5)
+    attentionWeights = layerAttn[head];
+  } else {
+    // 🔹 Average heads (like your Python avg)
+    const numHeads = layerAttn.length;
+    attentionWeights = Array(seqLen).fill(0).map(() => Array(seqLen).fill(0));
+
+    for (let h = 0; h < numHeads; h++) {
+      for (let i = 0; i < seqLen; i++) {
+        for (let j = 0; j < seqLen; j++) {
+          attentionWeights[i][j] += layerAttn[h][i][j] / numHeads;
+        }
+      }
+    }
+  }
+
+  // Normalize for color
+  let min = Infinity, max = -Infinity;
+  attentionWeights.forEach(row =>
+    row.forEach(v => {
+      min = Math.min(min, v);
+      max = Math.max(max, v);
+    })
+  );
+
+  const gridContainer = document.createElement("div");
+  gridContainer.style.display = "grid";
+  gridContainer.style.gridTemplateColumns = `60px repeat(${seqLen}, 45px)`;
+  gridContainer.style.gridTemplateRows = `60px repeat(${seqLen}, 45px)`;
+  gridContainer.style.gap = "2px";
+
+  // Empty corner
+  gridContainer.appendChild(document.createElement("div"));
+
+  // Top labels (keys)
+  tokens.forEach(tok => {
+    const label = document.createElement("div");
+    label.innerText = tok;
+    label.style.transform = "rotate(-45deg)";
+    label.style.fontSize = "12px";
+    label.style.display = "flex";
+    label.style.alignItems = "flex-end";
+    label.style.justifyContent = "flex-end";
+    gridContainer.appendChild(label);
+  });
+
+  let expandedCell = null;
+
+  for (let i = 0; i < seqLen; i++) {
+    // Left labels (queries)
+    const leftLabel = document.createElement("div");
+    leftLabel.innerText = tokens[i];
+    leftLabel.style.fontSize = "12px";
+    leftLabel.style.display = "flex";
+    leftLabel.style.alignItems = "center";
+    leftLabel.style.justifyContent = "flex-end";
+    gridContainer.appendChild(leftLabel);
+
+    for (let j = 0; j < seqLen; j++) {
+      const value = attentionWeights[i][j];
+      const norm = (value - min) / (max - min + 1e-8);
+
+      const cell = document.createElement("div");
+      cell.style.width = "45px";
+      cell.style.height = "45px";
+      cell.style.background = viridisColor(norm);
+      cell.style.display = "flex";
+      cell.style.alignItems = "center";
+      cell.style.justifyContent = "center";
+      cell.style.color = "white";
+      cell.style.cursor = "pointer";
+      cell.style.transition = "all 0.2s ease";
+
+      cell.addEventListener("click", () => {
+        if (expandedCell && expandedCell !== cell) {
+          expandedCell.style.transform = "scale(1)";
+          expandedCell.innerText = "";
+        }
+
+        if (expandedCell === cell) {
+          cell.style.transform = "scale(1)";
+          cell.innerText = "";
+          expandedCell = null;
+        } else {
+          cell.style.transform = "scale(2)";
+          cell.innerText = value.toFixed(3);
+          expandedCell = cell;
+        }
+      });
+
+      gridContainer.appendChild(cell);
+    }
+  }
+
+  container.appendChild(gridContainer);
+}
+
+function visualizeBERTAttentionLayerAvg(tokens, attentions, container, layer = 5) {
+  const seqLen = tokens.length;
+
+  // 🔹 Select layer
+  const layerAttn = attentions[layer][0]; // [heads, seq, seq]
+  const numHeads = layerAttn.length;
+
+  // 🔹 Average across all heads (like Python mean(dim=0))
+  const attentionWeights = Array(seqLen).fill(0).map(() => Array(seqLen).fill(0));
+  for (let i = 0; i < seqLen; i++) {
+    for (let j = 0; j < seqLen; j++) {
+      let sum = 0;
+      for (let h = 0; h < numHeads; h++) {
+        sum += layerAttn[h][i][j];
+      }
+      attentionWeights[i][j] = sum / numHeads;
+    }
+  }
+
+  // 🔹 Normalize for coloring
+  let min = Infinity, max = -Infinity;
+  attentionWeights.forEach(row =>
+    row.forEach(v => {
+      min = Math.min(min, v);
+      max = Math.max(max, v);
+    })
+  );
+
+  const gridContainer = document.createElement("div");
+  gridContainer.style.display = "grid";
+  gridContainer.style.gridTemplateColumns = `60px repeat(${seqLen}, 45px)`;
+  gridContainer.style.gridTemplateRows = `60px repeat(${seqLen}, 45px)`;
+  gridContainer.style.gap = "2px";
+
+  // Empty corner
+  gridContainer.appendChild(document.createElement("div"));
+
+  // Top labels
+  tokens.forEach(tok => {
+    const label = document.createElement("div");
+    label.innerText = tok;
+    label.style.transform = "rotate(-45deg)";
+    label.style.fontSize = "12px";
+    label.style.display = "flex";
+    label.style.alignItems = "flex-end";
+    label.style.justifyContent = "flex-end";
+    gridContainer.appendChild(label);
+  });
+
+  let expandedCell = null;
+
+  for (let i = 0; i < seqLen; i++) {
+    // Left labels
+    const leftLabel = document.createElement("div");
+    leftLabel.innerText = tokens[i];
+    leftLabel.style.fontSize = "12px";
+    leftLabel.style.display = "flex";
+    leftLabel.style.alignItems = "center";
+    leftLabel.style.justifyContent = "flex-end";
+    gridContainer.appendChild(leftLabel);
+
+    for (let j = 0; j < seqLen; j++) {
+      const value = attentionWeights[i][j];
+      const norm = (value - min) / (max - min + 1e-8);
+
+      const cell = document.createElement("div");
+      cell.style.width = "45px";
+      cell.style.height = "45px";
+      cell.style.background = viridisColor(norm);
+      cell.style.display = "flex";
+      cell.style.alignItems = "center";
+      cell.style.justifyContent = "center";
+      cell.style.color = "white";
+      cell.style.cursor = "pointer";
+      cell.style.transition = "all 0.2s ease";
+
+      cell.addEventListener("click", () => {
+        if (expandedCell && expandedCell !== cell) {
+          expandedCell.style.transform = "scale(1)";
+          expandedCell.innerText = "";
+        }
+
+        if (expandedCell === cell) {
+          cell.style.transform = "scale(1)";
+          cell.innerText = "";
+          expandedCell = null;
+        } else {
+          cell.style.transform = "scale(2)";
+          cell.innerText = value.toFixed(3);
+          expandedCell = cell;
+        }
+      });
+
+      gridContainer.appendChild(cell);
+    }
+  }
+
+  container.appendChild(gridContainer);
+}
+
+function visualizeAttention(tokens, attentionOutput) {
+  const seqLen = tokens.length;
+  const firstBatch = attentionOutput[0];
+  const numHeads = firstBatch.length;
+
+  // Average over heads
+  const attentionWeights = Array(seqLen).fill(0).map(() => Array(seqLen).fill(0));
+  for (let h = 0; h < numHeads; h++) {
+    for (let i = 0; i < seqLen; i++) {
+      for (let j = 0; j < seqLen; j++) {
+        attentionWeights[i][j] += firstBatch[h][i][j] / numHeads;
+      }
+    }
+  }
+
+  // Normalize 0 → 1 for coloring
+  let min = Infinity, max = -Infinity;
+  attentionWeights.forEach(row => row.forEach(v => { min = Math.min(min, v); max = Math.max(max, v); }));
+
+  const container = document.getElementById("responseOutput");
+  container.innerHTML = "";
+
+  // Grid container
+  const gridContainer = document.createElement("div");
+  gridContainer.style.display = "grid";
+  gridContainer.style.gridTemplateColumns = `50px repeat(${seqLen}, 40px)`; // left label space
+  gridContainer.style.gridTemplateRows = `50px repeat(${seqLen}, 40px)`; // top label space
+  gridContainer.style.gap = "2px";
+
+  // Top-left empty corner
+  gridContainer.appendChild(document.createElement("div"));
+
+  // Top labels (keys)
+  tokens.forEach(tok => {
+    const label = document.createElement("div");
+    label.innerText = tok;
+    label.style.transform = "rotate(-45deg)";
+    label.style.textAlign = "right";
+    label.style.fontSize = "12px";
+    label.style.height = "50px";
+    label.style.display = "flex";
+    label.style.alignItems = "flex-end";
+    label.style.justifyContent = "flex-end";
+    gridContainer.appendChild(label);
+  });
+
+  // Track expanded cell
+  let expandedCell = null;
+
+  // Left labels (queries) + cells
+  for (let i = 0; i < seqLen; i++) {
+    // Left label
+    const leftLabel = document.createElement("div");
+    leftLabel.innerText = tokens[i];
+    leftLabel.style.fontSize = "12px";
+    leftLabel.style.display = "flex";
+    leftLabel.style.alignItems = "center";
+    leftLabel.style.justifyContent = "flex-end";
+    gridContainer.appendChild(leftLabel);
+
+    for (let j = 0; j < seqLen; j++) {
+      const cell = document.createElement("div");
+      const norm = (attentionWeights[i][j] - min) / (max - min);
+      const value = attentionWeights[i][j];
+
+      cell.style.width = "40px";
+      cell.style.height = "40px";
+      cell.style.background = viridisColor(norm);
+      cell.style.display = "flex";
+      cell.style.alignItems = "center";
+      cell.style.justifyContent = "center";
+      cell.style.color = "white";
+      cell.style.cursor = "pointer";
+      cell.style.transition = "all 0.2s ease";
+      cell.style.position = "relative";
+      cell.style.userSelect = "none";       
+      cell.style.caretColor = "transparent"; 
+
+      cell.addEventListener("click", () => {
+        // Collapse previous
+        if (expandedCell && expandedCell !== cell) {
+          expandedCell.style.transform = "scale(1)";
+          expandedCell.innerText = "";
+          expandedCell.style.zIndex = "0";
+        }
+
+        // Toggle current
+        if (expandedCell === cell) {
+          cell.style.transform = "scale(1)";
+          cell.innerText = "";
+          cell.style.zIndex = "0";
+          expandedCell = null;
+        } else {
+          cell.style.transform = "scale(2.2)";
+          cell.style.zIndex = "10";
+          cell.innerText = value.toFixed(3);
+          expandedCell = cell;
+        }
+      });
+
+      gridContainer.appendChild(cell);
+    }
+  }
+
+  container.appendChild(gridContainer);
+}
+
+function visualizeEmbedding(tokens, embeddings){
+
+  const container = document.getElementById("responseOutput");
+  container.innerHTML = "";
+
+  // Main row holding token+grid columns
+  const embedRow = document.createElement("div");
+  embedRow.style.display = "flex";
+  embedRow.style.alignItems = "flex-start";
+
+  tokens.forEach((token,i)=>{
+
+    const column = document.createElement("div");
+    column.style.display = "flex";
+    column.style.flexDirection = "column";
+    column.style.alignItems = "center";
+    column.style.margin = "6px";
+
+    // TOKEN BOX (centered above grid)
+    const tokenBox = document.createElement("div");
+    tokenBox.innerText = token;
+    tokenBox.style.border = "1px solid black";
+    tokenBox.style.padding = "6px";
+    tokenBox.style.marginBottom = "8px";
+    tokenBox.style.background = "#f0f0f0";
+    tokenBox.style.textAlign = "center";
+    tokenBox.style.minWidth = "80px";
+
+    column.appendChild(tokenBox);
+
+    const vector = embeddings[i];
+
+    // EMBEDDING GRID
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "repeat(20,20px)";
+    grid.style.gridAutoRows = "20px";
+    grid.style.gap = "1px";
+    grid.style.border = "1px solid #999";
+    grid.style.padding = "2px";
+
+    vector.forEach(value=>{
+
+      const cell = document.createElement("div");
+      const intensity = Math.min(Math.abs(value)*255,255);
+
+      cell.style.width = "20px";
+      cell.style.height = "20px";
+      cell.style.background = value >= 0
+        ? `rgb(${intensity},0,0)`
+        : `rgb(0,0,${intensity})`;
+
+      cell.style.display = "flex";
+      cell.style.alignItems = "center";
+      cell.style.justifyContent = "center";
+      cell.style.fontSize = "7px";
+      cell.style.fontWeight = "bold";
+      cell.style.cursor = "pointer";
+      cell.style.transition = "all 0.2s ease";
+      cell.style.position = "relative";
+      cell.style.color = "white";
+      cell.style.userSelect = "none";        // prevent text selection
+      cell.style.caretColor = "transparent"; // hide the blinking caret
+
+      let expanded = false;
+
+      cell.addEventListener("click", ()=>{
+
+        // If clicking same cell again → collapse
+        if(expanded){
+          cell.style.transform = "scale(1)";
+          cell.style.zIndex = "0";
+          cell.innerText = "";
+          cell.style.cursor = "pointer";
+          expanded = false;
+          return;
+        }
+
+        // Reset all cells
+        document.querySelectorAll(".embedCell").forEach(c=>{
+          c.style.transform = "scale(1)";
+          c.style.zIndex = "0";
+          c.innerText = "";
+          c.style.cursor = "pointer";
+          c.dataset.expanded = "false";
+        });
+
+        // Expand selected cell
+        cell.style.transform = "scale(2.2)";
+        cell.style.zIndex = "10";
+        cell.innerText = value.toFixed(2);
+        cell.style.cursor = "default";
+
+        expanded = true;
+      });
+
+      cell.classList.add("embedCell");
+
+      grid.appendChild(cell);
+    });
+
+    column.appendChild(grid);
+
+    embedRow.appendChild(column);
+
+  });
+
+  container.appendChild(embedRow);
+}
+
+function buildPipelineState() {
+  return {
+    blocks: blocks.map(b => ({
+      label: b.userData.label,
+      model: b.userData.model || null,
+      output: b.userData.output || null
+    })),
+    connections: connections.map(c => ({
+      from: c.from.userData.label,
+      to: c.to.userData.label
+    }))
+  };
+}
+
+function truncateData(data, maxItems = 3) {
+  if (Array.isArray(data)) {
+    return data.slice(0, maxItems).map(item => truncateData(item, maxItems));
+  } 
+  
+  else if (typeof data === "object" && data !== null) {
+    const newObj = {};
+    for (const key in data) {
+      newObj[key] = truncateData(data[key], maxItems);
+    }
+    return newObj;
+  }
+
+  return data; 
+}
+
+const executeBtn = document.getElementById("executeBtn");
+
+executeBtn.addEventListener("click", async () => {
+  await runDirectLlama();
+});
+
+async function runDirectLlama() {
+
+  const prompt = promptInput.value;
+
+  if (!prompt) {
+    responseOutput.innerText = "Please enter a prompt.";
+    return;
+  }
+
+  let payload;
+
+  if (!lastExecutedBlock) {
+
+    payload = {
+      prompt: prompt,
+      block: "ai_agent", 
+      model: "llama3",
+      input: prompt
+    };
+
+    responseOutput.innerText = "Running assistant...\n";
+  }
+
+  else {
+
+    const currentBlock = lastExecutedBlock.userData.label;
+    // const currentModel = lastExecutedBlock.userData.model;
+    let rawData = lastExecutedBlock.userData.output || {};
+    let inputData = truncateData(rawData, 3);
+
+    payload = {
+      mode: "debug",
+      prompt: prompt,
+      // pipeline: currentModel || "Unknown",
+      current_block: currentBlock,
+      input: inputData,
+      block: "ai_agent", 
+      model: "llama3",
+    };
+
+    responseOutput.innerText = "Running debug assistant...\n";
+  }
+
+  try {
+    const res = await fetch("/api/llm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    responseOutput.innerHTML = `
+      <b>Assistant Output:</b><br>
+      <pre>${data.text}</pre>
+    `;
+
+  } catch (err) {
+    responseOutput.innerText += "\nError: " + err.message;
+  }
+}
+</script>
+
+</body>
+</html>
