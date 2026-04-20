@@ -22,23 +22,25 @@ Supports models like BERT, CLIP, ViT, GPT, and LLaMA with real-time visualizatio
 ```bash
 git clone https://github.com/<your-username>/LLM_UI.git
 cd LLM_UI
+```
 
 ### 2. Run setup script
 ```bash
 bash setup.sh
-
+```
+---
 ## ▶️ Launch Instructions
 
 ### 1. Activate the environment
 ```bash
 conda activate llama_ui
-
+```
 ### 2. Start the backend server
 ```bash
 node server.js
-
+```
 ### 3. Open the webUI
 ```bash
 http://localhost:8080/
-
+```
 
