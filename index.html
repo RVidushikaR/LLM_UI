@@ -324,23 +324,24 @@ function createBlock(label, color, model = null){
 }
 
 function wrapText(ctx, text, maxWidth) {
-  const words = text.split(" ");
+  const words = text.split(/(\s+|\/|\\)/); // 👈 split also on / and \
   const lines = [];
-  let currentLine = words[0];
+  let currentLine = "";
 
-  for (let i = 1; i < words.length; i++) {
-    const testLine = currentLine + " " + words[i];
+  words.forEach(word => {
+    const testLine = currentLine + word;
     const metrics = ctx.measureText(testLine);
 
-    if (metrics.width < maxWidth) {
-      currentLine = testLine;
-    } else {
+    if (metrics.width > maxWidth && currentLine !== "") {
       lines.push(currentLine);
-      currentLine = words[i];
+      currentLine = word;
+    } else {
+      currentLine = testLine;
     }
-  }
+  });
 
-  lines.push(currentLine);
+  if (currentLine) lines.push(currentLine);
+
   return lines;
 }
 
