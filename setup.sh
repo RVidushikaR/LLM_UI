@@ -7,7 +7,6 @@ echo "Activating environment..."
 source activate llama_ui
 
 echo "Installing Node dependencies..."
-npm init -y
 npm install express cors
 
 echo "Setup complete!"
